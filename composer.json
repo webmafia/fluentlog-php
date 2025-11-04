@@ -1,0 +1,24 @@
+{
+	"name": "webmafia/fluentlog",
+	"description": "Fluent Forward logger for PHP",
+	"license": "proprietary",
+	"authors": [
+		{
+			"name": "Ivar Johansson",
+			"email": "ivar@webbmaffian.se"
+		}
+	],
+	"autoload": {
+		"psr-4": {
+			"Webmafia\\Fluentlog\\": "src/"
+		}
+	},
+	"config": {
+		"classmap-authoritative": false
+	},
+	"require": {
+		"php": ">=7.4.0",
+		"ext-gmp": "*",
+		"rybakit/msgpack": "^0.9.1"
+	}
+}
