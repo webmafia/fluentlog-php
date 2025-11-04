@@ -1,3 +1,13 @@
+# fluentlog-php
+This is a PHP port of [Fluentlog](https://github.com/webmafia/fluentlog).
+
+## Installation
+```sh
+composer require webmafia/fluentlog
+```
+
+## Usage example
+```php
 <?php
 
 use Webmafia\Fluentlog\Logger;
@@ -28,4 +38,4 @@ for($i = 0; $i < 10; $i++) {
 $end = microtime(true);
 $dur = $end - $start;
 echo 'Done in ' . $dur . ' seconds' . "\n";
-
+```
