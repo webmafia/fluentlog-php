@@ -34,12 +34,12 @@ class Logger
 		return $this->log(Severity::CRITICAL, $message, $args);
 	}
 
-	public function error(mixed $message, mixed ...$args): Id
+	public function err(mixed $message, mixed ...$args): Id
 	{
 		return $this->log(Severity::ERROR, $message, $args);
 	}
 
-	public function warn(mixed $message, mixed ...$args): Id
+	public function warning(mixed $message, mixed ...$args): Id
 	{
 		return $this->log(Severity::WARNING, $message, $args);
 	}
