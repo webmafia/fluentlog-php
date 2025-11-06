@@ -160,8 +160,6 @@ final class TcpClient implements Client
 		if (!hash_equals($expected, $serverDigest)) {
 			throw new \RuntimeException('Shared key verification failed');
 		}
-
-		echo "[Handshake OK] Server: {$serverHost}\n";
 	}
 
 	/** Send one MsgPack-encoded message. */
