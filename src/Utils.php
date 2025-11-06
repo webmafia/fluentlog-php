@@ -50,4 +50,8 @@ class Utils
 		}
 		return false; // numeric
 	}
+
+	static public function isCli(): bool {
+		return (php_sapi_name() === 'cli');
+	}
 }

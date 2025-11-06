@@ -3,6 +3,7 @@
 namespace Webmafia\Fluentlog;
 
 use DateTimeImmutable;
+use Exception;
 use MessagePack\Packer;
 use MessagePack\BufferUnpacker;
 
@@ -42,25 +43,42 @@ final class TcpClient implements Client
 
 	public function writeMessage(string $tag, DateTimeImmutable $time, array $record): void
 	{
-		if (!$this->socket) {
-			$this->connect();
-			$this->handshake();
-		}
+		$this->maybeConnect();
 
 		foreach ($record as $key => $val) {
 			$record[$key] = Utils::scalar($val);
 		}
 
+		$msg = $this->packMessage($tag, $time, $record);
+
+		try {
+			$this->write($msg);
+		} catch(Exception $e) {
+			$this->close();
+			$this->maybeConnect();
+			$this->write($msg);
+		}
+	}
+
+	private function maybeConnect(): void {
+		if (!$this->socket) {
+			$this->connect();
+
+			// If this was a new connection, do a handshake
+			if (ftell($this->socket) === 0) {
+				$this->handshake();
+			}
+		}
+	}
+
+	private function packMessage(string $tag, DateTimeImmutable $time, array $record): string
+	{
 		$msg = $this->pack->packArrayHeader(3);
 		$msg .= $this->pack->packStr($tag);
 		$msg .= $this->packDateTime($time);
 		$msg .= $this->pack->packMap($record);
 
-		$len = fwrite($this->socket, $msg);
-
-		if ($len === false || $len !== strlen($msg)) {
-			throw new \RuntimeException('Failed to send message');
-		}
+		return $msg;
 	}
 
 	private function packDateTime(DateTimeImmutable $dt): string
@@ -78,16 +96,23 @@ final class TcpClient implements Client
 
 	private function connect(): void
 	{
-		$context = stream_context_create([
-			$this->useTls ? 'ssl' : 'tcp' => $this->useTls ? [
-				'verify_peer'       => true,
-				'verify_peer_name'  => true,
-				'allow_self_signed' => false,
-				'capture_peer_cert' => false,
-				'SNI_enabled'       => true,
-				'SNI_server_name'   => $this->host,
-			] : [],
-		]);
+		$options = [
+			'socket' => [
+				'tcp_nodelay' => true
+			]
+		];
+
+		if ($this->useTls) {
+			$options['ssl'] = [
+				'verify_peer'         => true,
+				'verify_peer_name'    => true,
+				'allow_self_signed'   => false,
+				'capture_peer_cert'   => false,
+				'disable_compression' => true
+			];
+		}
+
+		$context = stream_context_create($options);
 
 		$scheme = $this->useTls ? 'tls' : 'tcp';
 		$uri = "{$scheme}://{$this->host}:{$this->port}";
@@ -96,8 +121,8 @@ final class TcpClient implements Client
 			$uri,
 			$errno,
 			$errstr,
-			5,
-			STREAM_CLIENT_CONNECT | STREAM_CLIENT_ASYNC_CONNECT | STREAM_CLIENT_PERSISTENT,
+			3,
+			STREAM_CLIENT_CONNECT | STREAM_CLIENT_PERSISTENT,
 			$context
 		);
 
@@ -105,7 +130,8 @@ final class TcpClient implements Client
 			throw new \RuntimeException("Failed to connect: $errstr ($errno)");
 		}
 
-		stream_set_timeout($this->socket, 5);
+		stream_set_blocking($this->socket, true);
+		stream_set_timeout($this->socket, 3);
 	}
 
 	public function close(): void
@@ -113,6 +139,8 @@ final class TcpClient implements Client
 		if (is_resource($this->socket)) {
 			fclose($this->socket);
 		}
+
+		$this->socket = null;
 	}
 
 	/** Perform HELO → PING → PONG handshake. */
@@ -166,9 +194,20 @@ final class TcpClient implements Client
 	private function sendMessage(array $msg): void
 	{
 		$bin = $this->pack->pack($msg);
-		$len = fwrite($this->socket, $bin);
-		if ($len === false || $len !== strlen($bin)) {
-			throw new \RuntimeException('Failed to send message');
+		$this->write($bin);
+	}
+
+	private function write(string $bin): void
+	{
+		$total = strlen($bin);
+		$written = 0;
+
+		while ($written < $total) {
+			$len = fwrite($this->socket, substr($bin, $written));
+			if ($len === false) {
+				throw new \RuntimeException('Failed to send message');
+			}
+			$written += $len;
 		}
 	}
 

@@ -104,6 +104,8 @@ final class Id implements JsonSerializable, Stringable
 
 	public function toHex(): string
 	{
+		if(!function_exists('gmp_init')) return '';
+		
 		return IdCodec::toHex($this->v);
 	}
 
