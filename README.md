@@ -1,5 +1,10 @@
 # fluentlog-php
-This is a PHP port of [Fluentlog](https://github.com/webmafia/fluentlog).
+This is a PHP version of [Fluentlog](https://github.com/webmafia/fluentlog), with three important differences:
+1. Writing logs is not asynchronous.
+2. Written logs are not buffered.
+3. Written logs are not retried.
+
+For this reason it's highly recommended to write to a local log collector (preferably [FluentBit](https://fluentbit.io/)).
 
 ## Installation
 ```sh
