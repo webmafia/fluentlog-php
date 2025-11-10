@@ -10,13 +10,15 @@ class Logger
 	private int $stackTraceTreshold;
 	private Client $cli;
 	private IdGenerator $gen;
+	private bool $assoc;
 
-	public function __construct(Client $cli, string $tag, int $stackTraceTreshold = Severity::NOTICE)
+	public function __construct(Client $cli, string $tag, int $stackTraceTreshold = Severity::NOTICE, bool $assoc = false)
 	{
 		$this->cli = $cli;
 		$this->tag = $tag;
 		$this->stackTraceTreshold = $stackTraceTreshold;
 		$this->gen = new IdGenerator();
+		$this->assoc = $assoc;
 	}
 
 	public function emerg(mixed $message, mixed ...$args): Id
@@ -61,15 +63,10 @@ class Logger
 
 	private function log(int $severity, mixed $message, array $args): Id
 	{
-		$fmt = [];
-		$attrs = [];
-
-		foreach ($args as $arg) {
-			if (is_array($arg) && Utils::isAssoc($arg)) {
-				$attrs = array_merge($attrs, $arg);
-			} else {
-				$fmt[] = $arg;
-			}
+		if($this->assoc) {
+			list($fmt, $attrs) = $this->process_assoc_args($args);
+		} else {
+			list($fmt, $attrs) = $this->process_variadric_args($message, $args);
 		}
 
 		if ($message instanceof Throwable) {
@@ -85,6 +82,21 @@ class Logger
 			$message = vsprintf($message, $fmt);
 		}
 
+		if (array_key_exists('@id', $attrs)) {
+			trigger_error('"@id" is a reserved argument', E_USER_WARNING);
+			unset($attrs['@id']);
+		}
+
+		if (in_array('pri', $attrs)) {
+			trigger_error('"pri" is a reserved argument', E_USER_WARNING);
+			unset($attrs['pri']);
+		}
+
+		if (in_array('message', $attrs)) {
+			trigger_error('"message" is a reserved argument', E_USER_WARNING);
+			unset($attrs['message']);
+		}
+
 		$id = $this->gen->id();
 
 		$this->cli->writeMessage($this->tag, $id->time(), [
@@ -95,6 +107,70 @@ class Logger
 		]);
 
 		return $id;
+	}
+
+	private function process_assoc_args(array $args): array
+	{
+		$fmt = [];
+		$attrs = [];
+
+		foreach($args as $arg) {
+			if(is_array($arg) && Utils::isAssoc($arg)) {
+				$attrs = array_merge($attrs, $arg);
+			} else {
+				$fmt[] = $arg;
+			}
+		}
+
+		return [
+			$fmt,
+			$attrs
+		];
+	}
+
+	private function process_variadric_args(string $message, array $args): array
+	{
+		$fmt = [];
+		$attrs = [];
+		$offset = 0;
+
+		if(str_contains($message, '%')) {
+			preg_match_all("/%([0-9]+\$)?(-|\+|0|\s|('\p{L}))?([0-9]|\*)?(\.([0-9]+|\*))?(b|c|d|e|E|f|F|g|G|h|H|o|s|u|x|X)/", $message, $matches);
+			$offset = count($matches[0]);
+			$nums = [];
+
+			foreach($matches[4] as $m) {
+				if(is_int($m)) {
+					array_push($nums, $m);
+				}
+			}
+
+			$offset += substr_count(implode('', $matches[0]), '*');
+			$offset -= count($nums) - count(array_unique($nums));
+			$fmt = array_slice($args, 0, $offset);
+		}
+
+		$keys = [];
+		$vals = [];
+
+		foreach(array_slice($args, $offset) as $i => $arg) {
+			if($i % 2 === 0) {
+				$keys[] = $arg;
+			} else {
+				$vals[] = $arg;
+			}
+		}
+
+		while (count($keys) > count($vals)) {
+			array_pop($keys);
+		}
+
+		$attrs = array_combine($keys, $vals);
+
+		return [
+			$fmt,
+			$attrs
+		];
 	}
 
 	static private function stackTracecFromThrowable(Throwable $e): array
