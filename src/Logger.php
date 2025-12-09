@@ -133,6 +133,7 @@ class Logger
 		$fmt = [];
 		$attrs = [];
 		$offset = 0;
+		$args = array_values($args);
 
 		if(str_contains($message, '%')) {
 			preg_match_all("/%([0-9]+\$)?(-|\+|0|\s|('\p{L}))?([0-9]|\*)?(\.([0-9]+|\*))?(b|c|d|e|E|f|F|g|G|h|H|o|s|u|x|X)/", $message, $matches);
