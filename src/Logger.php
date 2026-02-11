@@ -66,9 +66,9 @@ class Logger
 	private function log(int $severity, mixed $message, array $args): Id
 	{
 		if($this->assoc) {
-			list($fmt, $attrs) = $this->process_assoc_args($args);
+			list($fmt, $attrs) = $this->processAssocArgs($args);
 		} else {
-			list($fmt, $attrs) = $this->process_variadric_args($message, $args);
+			list($fmt, $attrs) = $this->processVariadricArgs($message, $args);
 		}
 
 		if ($message instanceof Throwable) {
@@ -111,7 +111,7 @@ class Logger
 		return $id;
 	}
 
-	private function process_assoc_args(array $args): array
+	private function processAssocArgs(array $args): array
 	{
 		$fmt = [];
 		$attrs = [];
@@ -130,7 +130,7 @@ class Logger
 		];
 	}
 
-	private function process_variadric_args(string $message, array $args): array
+	private function processVariadricArgs(string $message, array $args): array
 	{
 		$fmt = [];
 		$attrs = [];
