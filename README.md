@@ -46,7 +46,7 @@ echo 'Done in ' . $dur . ' seconds' . "\n";
 ```
 
 ## Error handler
-There is also a method on the logger that registers an error handler, that will catch and handle any error (fatals, uncatched exceptions, syntax errors, etc). Remember to call the method _as early as possible_ in your application, as it won't catch any error that occurs before registration.
+There is als (since v0.4.0) a method on the logger that registers an error handler, that will catch and handle any error (fatals, uncatched exceptions, syntax errors, etc). Remember to call the method _as early as possible_ in your application, as it won't catch any error that occurs before registration.
 ```php
 <?php
 
