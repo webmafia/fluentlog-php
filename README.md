@@ -44,3 +44,19 @@ $end = microtime(true);
 $dur = $end - $start;
 echo 'Done in ' . $dur . ' seconds' . "\n";
 ```
+
+## Error handler
+There is also a method on the logger that registers an error handler, that will catch and handle any error (fatals, uncatched exceptions, syntax errors, etc). Remember to call the method _as early as possible_ in your application, as it won't catch any error that occurs before registration.
+```php
+<?php
+
+$logger = new Logger($client, 'php');
+
+// <- Any error that occurs here will NOT be handled.
+
+$logger->registerErrorHandler();
+
+error_log('This will NOT be handled either, as error handlers do not catch these messages');
+
+throw new Exception('An uncatched exception that WILL be handled');
+```
