@@ -2,6 +2,8 @@
 
 namespace Webmafia\Fluentlog;
 
+use Error;
+use ErrorException;
 use Throwable;
 
 class Logger
@@ -123,5 +125,59 @@ class Logger
 		}
 
 		return $trace;
+	}
+
+	/**
+	 * Registers error handlers that will catch any error that occurs afterwards.
+	 */
+	public function registerErrorHandler(): void {
+		set_error_handler(function($num, $str, $file, $line, $context = null) {
+			$this->handleException(new ErrorException($str, 0, $num, $file, $line));
+		});
+
+		set_exception_handler(function(Throwable $e) {
+			$this->handleException($e);
+		});
+
+		register_shutdown_function(function() {
+			$error = error_get_last();
+
+			if ($error && $error['type'] == E_ERROR) {
+				$this->handleException(new ErrorException($error['message'], 0, $error['type'], $error['file'], $error['line']));
+			}
+		});
+	}
+
+	private function handleException(Throwable $e): void {
+		$severity = Severity::ERROR;
+
+		if($e instanceof ErrorException) {
+			$severity = self::getSeverity($e->getSeverity());
+		} elseif($e instanceof Error) {
+			$severity = Severity::CRITICAL;
+		}
+
+		$this->log($severity, $e, []);
+	}
+
+	static private function getSeverity($errno): int {
+		static $severities = [
+			E_ERROR => Severity::ERROR,
+			E_WARNING => Severity::WARNING,
+			E_PARSE => Severity::CRITICAL,
+			E_NOTICE => Severity::NOTICE,
+			E_CORE_ERROR => Severity::ERROR,
+			E_CORE_WARNING => Severity::WARNING,
+			E_COMPILE_ERROR => Severity::ERROR,
+			E_COMPILE_WARNING => Severity::WARNING,
+			E_USER_ERROR => Severity::ERROR,
+			E_USER_WARNING => Severity::WARNING,
+			E_USER_NOTICE => Severity::NOTICE,
+			E_RECOVERABLE_ERROR => Severity::ERROR,
+			E_DEPRECATED => Severity::WARNING,
+			E_USER_DEPRECATED => Severity::WARNING
+		];
+
+		return $severities[$errno] ?? Severity::WARNING;
 	}
 }
