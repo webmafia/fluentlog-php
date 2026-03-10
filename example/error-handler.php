@@ -1,6 +1,7 @@
 <?php
 
 use Webmafia\Fluentlog\Logger;
+use Webmafia\Fluentlog\Severity;
 use Webmafia\Fluentlog\TcpClient;
 
 require_once('../vendor/autoload.php');
@@ -16,6 +17,10 @@ $client = new TcpClient(
 );
 
 $logger = new Logger($client, 'php');
-$logger->registerErrorHandler();
+$logger->registerErrorHandler([
+    'exclude_paths' => [
+        '/path/to/dir' => Severity::ERROR
+    ]
+]);
 
 include('bad-file.php');

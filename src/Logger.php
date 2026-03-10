@@ -206,32 +206,44 @@ class Logger
 
 	/**
 	 * Registers error handlers that will catch any error that occurs afterwards.
+	 * 
+	 * @param array{exclude_paths?: array<string, int>} $params Parameters for the error handler
 	 */
-	public function registerErrorHandler(): void {
-		set_error_handler(function($num, $str, $file, $line, $context = null) {
-			$this->handleException(new ErrorException($str, 0, $num, $file, $line));
+	public function registerErrorHandler($params = []): void {
+		set_error_handler(function($num, $str, $file, $line, $context = null) use ($params) {
+			$this->handleException(new ErrorException($str, 0, $num, $file, $line), $params);
 		});
 
-		set_exception_handler(function(Throwable $e) {
-			$this->handleException($e);
+		set_exception_handler(function(Throwable $e) use ($params) {
+			$this->handleException($e, $params);
 		});
 
-		register_shutdown_function(function() {
+		register_shutdown_function(function() use ($params) {
 			$error = error_get_last();
 
 			if ($error && $error['type'] == E_ERROR) {
-				$this->handleException(new ErrorException($error['message'], 0, $error['type'], $error['file'], $error['line']));
+				$this->handleException(new ErrorException($error['message'], 0, $error['type'], $error['file'], $error['line']), $params);
 			}
 		});
 	}
 
-	private function handleException(Throwable $e): void {
+	private function handleException(Throwable $e, $params = []): void {
 		$severity = Severity::ERROR;
 
 		if($e instanceof ErrorException) {
 			$severity = self::getSeverity($e->getSeverity());
 		} elseif($e instanceof Error) {
 			$severity = Severity::CRITICAL;
+		}
+
+		if (!empty($params['exclude_paths'])) {
+			$trace = $e->getTraceAsString();
+
+			foreach($params['exclude_paths'] as $path => $sev) {
+				if (is_string($path) && is_int($sev) && $severity < $sev && str_contains($trace, $path)) {
+					return;
+				}
+			}
 		}
 
 		$this->log($severity, $e, []);
