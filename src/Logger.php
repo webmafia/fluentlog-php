@@ -182,7 +182,9 @@ class Logger
 		$trace[] = $e->getFile() . ':' . $e->getLine();
 
 		foreach ($e->getTrace() as $row) {
-			$trace[] = $row['file'] . ':' . $row['line'];
+			if (isset($row['file'], $row['line'])) {
+				$trace[] = $row['file'] . ':' . $row['line'];
+			}
 		}
 
 		return $trace;
@@ -209,7 +211,8 @@ class Logger
 	 * 
 	 * @param array{exclude_paths?: array<string, int>} $params Parameters for the error handler
 	 */
-	public function registerErrorHandler($params = []): void {
+	public function registerErrorHandler($params = []): void
+	{
 		set_error_handler(function($num, $str, $file, $line, $context = null) use ($params) {
 			$this->handleException(new ErrorException($str, 0, $num, $file, $line), $params);
 		});
@@ -227,7 +230,8 @@ class Logger
 		});
 	}
 
-	private function handleException(Throwable $e, $params = []): void {
+	private function handleException(Throwable $e, $params = []): void
+	{
 		$severity = Severity::ERROR;
 
 		if($e instanceof ErrorException) {
@@ -237,11 +241,17 @@ class Logger
 		}
 
 		if (!empty($params['exclude_paths'])) {
-			$trace = $e->getTraceAsString();
+			$trace = self::stackTracecFromThrowable($e);
 
 			foreach($params['exclude_paths'] as $path => $sev) {
-				if (is_string($path) && is_int($sev) && $severity < $sev && str_contains($trace, $path)) {
-					return;
+				if (!is_string($path) || !is_int($sev) || $severity > $sev) {
+					continue;
+				}
+
+				foreach($trace as $filename) {
+					if (str_starts_with($filename, $path)) {
+						return;
+					}
 				}
 			}
 		}
@@ -249,7 +259,8 @@ class Logger
 		$this->log($severity, $e, []);
 	}
 
-	static private function getSeverity($errno): int {
+	static private function getSeverity($errno): int
+	{
 		static $severities = [
 			E_ERROR => Severity::ERROR,
 			E_WARNING => Severity::WARNING,
